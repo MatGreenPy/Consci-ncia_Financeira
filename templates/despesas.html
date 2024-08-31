@@ -1,0 +1,167 @@
+{% if session.get('id_usuario') %}
+    {% extends 'baseLogado.html' %}
+    {% block filtros %}
+    <form id="filtros" action="{{ url_for('listaDespesas') }}" method="POST" class="mb-3">
+        <div class="row g-3 align-items-center">
+            <div class="col-auto">
+                <label for="diaFiltrarSelect" class="form-label text-white">Filtrar (Dia):</label>
+                <select name="diaFiltrarSelect" id="diaFiltrarSelect" class="form-select">
+                    <option value="">Nenhum</option>
+                    {% for dia in range(1, 32) %}
+                        <option value="{{ '%2d' % dia }}" {% if dia == dia_filtrar|int %}selected{% endif %}>{{ '%02d' % dia }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label for="mesFiltrarSelect" class="form-label text-white">Filtrar (Mês):</label>
+                <select name="mesFiltrarSelect" id="mesFiltrarSelect" class="form-select">
+                    <option value="">Nenhum</option>
+                    {% for mes in ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'] %}
+                        <option value="{{ mes }}" {% if mes == mes_filtrar %}selected{% endif %}>{{ mes }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label for="anoFiltrarSelect" class="form-label text-white">Filtrar (Ano):</label>
+                <select name="anoFiltrarSelect" id="anoFiltrarSelect" class="form-select" required>
+                    {% for ano in anos_usuario %}
+                        <option value="{{ ano }}" {% if ano == ano_filtrar|int %}selected{% endif %}>{{ ano }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <button type="submit" class="btn btn-success mt-4">Filtrar</button>
+            </div>
+        </div>
+    </form>
+    {% endblock %}
+
+    {% block content %}
+    <br>
+    <center>
+    <a href="{{ url_for('despesasAdicionar') }}" class="btn btn-danger w-25">Adicionar Despesa</a>
+    </center>
+    <br>
+    <table class="table table-hover">
+        <thead class="table-dark text-white">
+            <tr>
+                <th>ID</th>
+                <th>Despesa</th>
+                <th>Tipo</th>
+                <th>Valor</th>
+                <th>Dia</th>
+                <th>Mês</th>
+                <th>Ano</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if despesas.items %}
+                {% for despesa in despesas.items %}
+                    <tr>
+                        <td>{{ despesa.id }}</td>
+                        <td>{{ despesa.nome_despesa }}</td>
+                        <td>{{ despesa.tipo }}</td>
+                        <td>R$ {{ despesa.valor | round(2) }}</td> 
+                        <td>{{ despesa.dia }}</td>
+                        <td>{{ despesa.mes }}</td>
+                        <td>{{ despesa.ano }}</td>
+                        <td><button class="btn btn-danger" onclick="excluirDespesa({{ despesa.id }})">Excluir</button></td>
+                    </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="7" class="alert-warning">{{aviso_filtro}}</td>
+                </tr>
+            {% endif %}
+            {% if total_mes %}
+            <caption class="bg-dark text-danger">Total - {{mes_filtrar}} / {{ano_filtrar}}: R$ {{ total_mes }}</caption>
+            {% elif total_espec %}
+            <caption class="bg-dark text-danger">Total - {{dia_filtrar}} / {{mes_filtrar}} / {{ano_filtrar}}: R$ {{ total_espec }}</caption>
+            {% elif total_ano %}
+            <caption class="bg-dark text-danger">Total - {{ano_filtrar}}: R$ {{ total_ano }}</caption>
+            {% endif %}
+        </tbody>
+    </table>
+    <div class="d-flex justify-content-between mt-3">
+        {% if despesas.has_prev %}
+            <a href="{{ url_for('listaDespesas', page=despesas.prev_num, diaFiltrarSelect=dia_filtrar, mesFiltrarSelect=mes_filtrar, anoFiltrarSelect=ano_filtrar) }}" class="btn btn-danger"> <<< </a>
+        {% endif %}
+        <span>Página {{ despesas.page }} de {{ despesas.pages }}</span>
+        {% if despesas.has_next %}
+            <a href="{{ url_for('listaDespesas', page=despesas.next_num, diaFiltrarSelect=dia_filtrar, mesFiltrarSelect=mes_filtrar, anoFiltrarSelect=ano_filtrar) }}" class="btn btn-danger"> >>> </a>
+        {% endif %}
+    </div>
+    <center>
+    {% if total_mes or total_espec or total_ano %}
+    <button class="btn btn-danger w-25" onclick="revelarGrafico()">Ver Gráfico</button>
+    {% endif %}
+    </center>
+    <div class="grafico-container" id="graficoContainer" style="display: none;">
+        <img id="graficoImage" src="" alt="Gráfico de Despesas">
+    </div>
+    <script>
+        function revelarGrafico() {
+            var graficoContainer = document.getElementById('graficoContainer');
+            var graficoImage = document.getElementById('graficoImage');
+            
+            if (graficoContainer.style.display === 'none') {
+                graficoImage.src = "{{ url_for('static', filename='despesas_grafico.png') }}";
+                graficoContainer.style.display = 'block';
+            } else {
+                graficoImage.src = "";
+                graficoContainer.style.display = 'none';
+            }
+        }
+
+        function excluirUsuario(usuarioId) {
+    if (confirm("Tem certeza que deseja excluir sua conta?")) {
+        fetch(`/home/excluirUsuario/${usuarioId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())  // Parseia a resposta JSON
+        .then(data => {
+            if (data.message === 'Usuário excluído com sucesso') {
+                // Armazena a mensagem na sessão ou localStorage se precisar exibir em outra página
+                window.location.href = '/login';  // Redireciona para a página de login
+                alert(data.message)
+            } else {
+                alert(data.message);  // Mostra a mensagem retornada pelo servidor
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao excluir usuário:", error);
+            alert("Erro ao excluir sua conta.");
+        });
+    }  
+}
+
+        function excluirDespesa(despesaId) {
+        if (confirm("Tem certeza que deseja excluir esta despesa?")) {
+        fetch(`/despesas/excluir/${despesaId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => {
+            if (response.ok) {
+                // Atualiza a página ou remove a linha da tabela
+                location.reload(); // Atualiza a página para refletir a exclusão
+            } else {
+                alert("Erro ao excluir despesa.");
+            }
+        })
+        .catch(error => {
+            console.error("Erro ao excluir despesa:", error);
+            alert("Erro ao excluir despesa.");
+        });
+    }
+}
+    </script>
+    {% endblock content %}
+{% else %}
+{% endif %}
